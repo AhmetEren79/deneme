@@ -1,0 +1,46 @@
+# Python'un oluşturduğu geçici dosyalar ve klasörler
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Sanal Ortam (Virtual Environment) klasörleri
+# Bu en önemlisi! Sanal ortamları asla GitHub'a göndermeyiz.
+venv/
+env/
+.venv/
+.env/
+*/Lib/site-packages/
+
+# Editör ve IDE ayar klasörleri
+.vscode/
+.idea/
+
+# İşletim sistemi dosyaları
+.DS_Store
+Thumbs.db
+
+# Geçici dosyalar ve loglar
+*.log
+*.tmp
+*.temp
+
+# Hassas bilgileri içeren dosyalar
+.env
+
+# Jupyter Notebook Checkpoints
+.ipynb_checkpoints
+
+# Büyük medya ve veri dosyaları (İhtiyaç olursa tek tek ekleriz)
+# Eğer projeniz için gerekli küçük ses dosyaları varsa,
+# o dosyaların adını !önüne ünlem koyarak bir alt satıra ekleyebilirsiniz.
+# Örnek: !my_voice.wav
+*.mp4
+*.mp3
+*.wav
+*.csv
+*.zip
+*.gz
+*.pkl
+*.model
+*.h5
