@@ -1,0 +1,15 @@
+# Speech-to-Text
+openai-whisper
+
+# Text-to-Speech
+TTS
+
+# Ollama Client
+ollama
+
+# Ses kaydı ve oynatma için gerekli olabilir
+pyaudio
+sounddevice
+
+# Klavye dinleme
+keyboard

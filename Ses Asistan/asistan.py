@@ -1,15 +1,22 @@
 import whisper
-# import ollama
-# from TTS.api import TTS
+import ollama
+from TTS.api import TTS
 import sounddevice as sd
 from scipy.io.wavfile import write
 import os
+import soundfile as sf
+import keyboard
 
 # Modelimizi bir kere yükleyelim ki her seferinde yüklenmesin.
 # "base" modeli hız ve doğruluk arasında iyi bir dengedir.
 print("Whisper modeli yükleniyor...")
 whisper_model = whisper.load_model("base")
 print("Whisper modeli yüklendi.")
+
+# Coqui TTS modelini yüklüyoruz. xtts_v2 modeli ses klonlama için harikadır.
+print("Coqui TTS modeli yükleniyor...")
+tts_model = TTS("tts_models/multilingual/multi-dataset/xtts_v2", gpu=True)
+print("Coqui TTS modeli yüklendi.")
 
 
 def sesi_metne_cevir():
@@ -20,7 +27,7 @@ def sesi_metne_cevir():
     print(">>> Adım 1: Ses dinleniyor...")
 
     fs = 44100  # Örnekleme frekansı
-    seconds = 5  # Kayıt süresi
+    seconds = 3  # Kayıt süresi
     filename = "kayit.wav"
 
     print("Kaydediliyor...")
@@ -31,7 +38,7 @@ def sesi_metne_cevir():
     write(filename, fs, myrecording)  # Kaydı dosyaya yaz
 
     print("Metne çevriliyor...")
-    result = whisper_model.transcribe(filename)
+    result = whisper_model.transcribe(filename, language="tr")
     kullanici_metni = result["text"]
 
     print(f"Kullanıcı dedi ki: '{kullanici_metni}'")
@@ -44,42 +51,114 @@ def sesi_metne_cevir():
 
 def ollama_ile_cevap_uret(metin):
     """
-    Bu fonksiyon, gelen metni Ollama'ya gönderip bir cevap alacak.
-    Şimdilik sadece örnek bir cevap döndürüyor.
+    Bu fonksiyon, gelen metni sistem talimatıyla birlikte Ollama'ya gönderip
+    kısa ve Türkçe bir cevap alacak.
     """
     print(">>> Adım 2: Ollama ile cevap üretiliyor...")
-    # TODO: Ollama'ya bağlanıp cevap alma kodunu buraya ekleyeceğiz.
-    asistan_cevabi = "Konya'da bugün hava güneşli ve sıcaklık 28 derece."
-    print(f"Asistan cevap verdi: '{asistan_cevabi}'")
-    return asistan_cevabi
+
+    try:
+        response = ollama.chat(
+            model='llama3.1     ',
+            messages=[
+                # YENİ, DAHA ANLAŞILIR VE NET SİSTEM TALİMATI
+                {
+                    'role': 'system',
+                    'content': 'Sadece Türkçe konuşuyorsun ve 1 cümle kuruyorsun.kısa öz ve kibar bir dille cevap ver.',
+                },
+                # KULLANICININ MESAJI
+                {
+                    'role': 'user',
+                    'content': metin,
+                },
+            ]
+        )
+        asistan_cevabi = response['message']['content']
+        print(f"Asistan cevap verdi: '{asistan_cevabi}'")
+        return asistan_cevabi
+
+    except Exception as e:
+        print(f"Ollama'ya bağlanırken bir hata oluştu: {e}")
+        hata_mesaji = "Üzgünüm, şu an cevap veremiyorum. Lütfen Ollama'nın çalıştığından emin olun."
+        return hata_mesaji
 
 
 def metni_sese_cevir_ve_oynat(metin):
     """
     Bu fonksiyon, Coqui TTS kullanarak metni sese çevirecek ve oynatacak.
-    Şimdilik sadece bir mesaj yazdırıyor.
+    Referans olarak 'hedef_ses.wav' dosyasını kullanacak.
     """
-    print(">>> Adım 3: Coqui TTS ile metin sese çevriliyor ve oynatılıyor...")
-    # TODO: Coqui TTS ile metni sese çevirme ve oynatma kodunu buraya ekleyeceğiz.
-    print(">>> Sesli cevap oynatıldı.")
+    print(">>> Adım 3: Coqui TTS ile metin sese çevriliyor...")
+
+    output_filename = "yanit.wav"
+    reference_voice_path = "hedef_ses.wav"  # Referans ses dosyamızın adı
+
+    try:
+        # Metni, referans sesi kullanarak dosyaya sentezle
+        tts_model.tts_to_file(
+            text=metin,
+            speaker_wav=reference_voice_path,
+            language="tr",  # Dil olarak Türkçe'yi belirtiyoruz
+            file_path=output_filename
+        )
+
+        print("Ses dosyası oluşturuldu. Şimdi oynatılıyor...")
+
+        # Oluşturulan ses dosyasını oynat
+        data, fs = sf.read(output_filename, dtype='float32')
+        sd.play(data, fs)
+        sd.wait()
+
+        print(">>> Sesli cevap oynatıldı.")
+
+        # Geçici yanıt dosyasını sil
+        os.remove(output_filename)
+
+    except Exception as e:
+        print(f"Coqui TTS ile ses üretirken bir hata oluştu: {e}")
 
 
 def main():
     """
-    Ana fonksiyon. Tüm iş akışını yönetir.
+    Ana fonksiyon. Sürekli çalışır, 'space' tuşuna basılmasını bekler,
+    işlemi gerçekleştirir      ve tekrar beklemeye geçer. 'esc' tuşu ile çıkar.
     """
-    print("Asistan başlatıldı. Komut bekleniyor...")
+    print("Asistan başlatıldı. Çıkmak için 'esc' tuşuna, konuşmak için 'space' tuşuna basın.")
 
-    # 1. Kullanıcının sesini metne çevir
-    kullanici_komutu = sesi_metne_cevir()
+    while True:
+        try:
+            # Kullanıcının bir tuşa basmasını bekle
+            print("\nDinleme moduna geçmek için 'space' tuşuna basın...")
+            keyboard.wait('space')
 
-    # 2. Gelen metne göre bir cevap üret
-    asistan_cevabi = ollama_ile_cevap_uret(kullanici_komutu)
+            print("Tuşa basıldı, dinleniyor...")
 
-    # 3. Üretilen cevabı seslendir
-    metni_sese_cevir_ve_oynat(asistan_cevabi)
+            # 1. Kullanıcının sesini metne çevir
+            kullanici_komutu = sesi_metne_cevir()
 
-    print("İşlem tamamlandı.")
+            # Eğer kullanıcı bir şey söylemediyse döngünün başına dön
+            if not kullanici_komutu.strip():
+                print("Bir şey söylemediğiniz için işlem iptal edildi.")
+                continue
+
+            # 2. Gelen metne göre bir cevap üret
+            asistan_cevabi = ollama_ile_cevap_uret(kullanici_komutu)
+
+            # 3. Üretilen cevabı seslendir
+            metni_sese_cevir_ve_oynat(asistan_cevabi)
+
+        except KeyboardInterrupt:
+            # Ctrl+C ile çıkış yapıldığında
+            print("\nProgram sonlandırılıyor.")
+            break
+        except Exception as e:
+            # 'esc' tuşuna basıldığında keyboard.wait bir hata fırlatır,
+            # bunu kullanarak döngüden çıkabiliriz.
+            if "esc" in str(e).lower():
+                print("\n'esc' tuşuna basıldı, program kapatılıyor.")
+                break
+            else:
+                print(f"Beklenmedik bir hata oluştu: {e}")
+                break
 
 
 if __name__ == "__main__":
